@@ -1,21 +1,11 @@
 """
-Modern Gradio UI for RAG system.
-
-Features:
-- PDF upload and processing
-- Semantic chunking visualization
-- Fine-tuning with progress
-- Query interface with source display
-- Comparison between base and fine-tuned
+Gradio Interface for RAG System.
 """
 
 import gradio as gr
-from pathlib import Path
-import tempfile
-import os
 
 # Import pipeline components
-from src.pipeline import RAGPipeline, create_pipeline
+from src.pipeline import create_pipeline
 from src.config import get_settings
 
 
@@ -38,7 +28,7 @@ def initialize_pipeline(embedding_model: str, llm_provider: str):
         llm_provider=llm_provider,
     )
     
-    return "✅ Pipeline initialized successfully!"
+    return "Pipeline initialized."
 
 
 def process_pdfs(files, progress=gr.Progress()):
@@ -46,43 +36,37 @@ def process_pdfs(files, progress=gr.Progress()):
     global pipeline
     
     if pipeline is None:
-        return "❌ Please initialize the pipeline first.", ""
+        return "Pipeline not initialized.", ""
     
     if not files:
-        return "❌ No files uploaded.", ""
+        return "No files uploaded.", ""
     
-    progress(0.1, desc="Starting document processing...")
+    progress(0.1, desc="Starting...")
     
     try:
         # Get file paths
         file_paths = [f.name for f in files]
         
-        progress(0.3, desc="Ingesting documents...")
+        progress(0.3, desc="Ingesting...")
         
         # Ingest documents
         num_chunks = pipeline.ingest(file_paths, show_progress=False)
         
-        progress(1.0, desc="Processing complete!")
+        progress(1.0, desc="Complete")
         
         # Create summary
         summary = f"""
-## ✅ Processing Complete
+## Processing Complete
 
-**Documents processed:** {len(files)}
-**Chunks created:** {num_chunks}
-**Chunking strategy:** {pipeline.settings.chunking.strategy}
-
-### Chunk Statistics:
-- Min size: {pipeline.settings.chunking.min_chunk_size} chars
-- Max size: {pipeline.settings.chunking.max_chunk_size} chars
-
-Ready to query!
+**Documents:** {len(files)}
+**Chunks:** {num_chunks}
+**Strategy:** {pipeline.settings.chunking.strategy}
 """
         
         # Show sample chunks
         sample_chunks = ""
         if pipeline.chunks:
-            sample_chunks = "### Sample Chunks:\n\n"
+            sample_chunks = "### Samples:\n\n"
             for i, chunk in enumerate(pipeline.chunks[:3]):
                 sample_chunks += f"**Chunk {i+1}** ({len(chunk.text)} chars):\n"
                 sample_chunks += f"```\n{chunk.text[:200]}...\n```\n\n"
@@ -90,7 +74,7 @@ Ready to query!
         return summary, sample_chunks
         
     except Exception as e:
-        return f"❌ Error processing documents: {str(e)}", ""
+        return f"Error: {str(e)}", ""
 
 
 def start_fine_tuning(epochs: int, batch_size: int, progress=gr.Progress()):
@@ -98,12 +82,12 @@ def start_fine_tuning(epochs: int, batch_size: int, progress=gr.Progress()):
     global pipeline
     
     if pipeline is None:
-        return "❌ Please initialize the pipeline first."
+        return "Pipeline not initialized."
     
     if not pipeline.chunks:
-        return "❌ No documents indexed. Please process documents first."
+        return "No documents indexed."
     
-    progress(0.1, desc="Preparing fine-tuning...")
+    progress(0.1, desc="Preparing...")
     
     try:
         progress(0.2, desc="Generating training data...")
@@ -114,25 +98,18 @@ def start_fine_tuning(epochs: int, batch_size: int, progress=gr.Progress()):
             use_hard_negatives=True,
         )
         
-        progress(1.0, desc="Fine-tuning complete!")
+        progress(1.0, desc="Complete")
         
         return f"""
-## ✅ Fine-tuning Complete
+## Training Complete
 
-**Model saved to:** `{output_path}`
-**Epochs:** {int(epochs)}
-**Batch size:** {int(batch_size)}
-
-The model has been trained using **contrastive learning** with:
-- Triplet loss (anchor, positive, negative)
-- Synthetic query generation
-- Hard negative mining
-
-This is the **correct** approach for embedding fine-tuning!
+**Output:** `{output_path}`
+**Config:** {int(epochs)} epochs, batch size {int(batch_size)}
+**Method:** Contrastive Learning (Triplet Loss)
 """
         
     except Exception as e:
-        return f"❌ Error during fine-tuning: {str(e)}"
+        return f"Error: {str(e)}"
 
 
 def query_rag(question: str, include_sources: bool):
@@ -140,13 +117,13 @@ def query_rag(question: str, include_sources: bool):
     global pipeline
     
     if pipeline is None:
-        return "❌ Please initialize the pipeline first.", ""
+        return "Pipeline not initialized.", ""
     
     if not pipeline.is_indexed:
-        return "❌ No documents indexed. Please process documents first.", ""
+        return "Index empty.", ""
     
     if not question.strip():
-        return "❌ Please enter a question.", ""
+        return "Enter a question.", ""
     
     try:
         response = pipeline.query(question)
@@ -159,16 +136,16 @@ def query_rag(question: str, include_sources: bool):
             for i, source in enumerate(response.sources, 1):
                 sources += f"**Source {i}:**\n"
                 sources += f"```\n{source['text']}\n```\n"
-                sources += f"*From: {source['source']}*\n\n"
+                sources += f"*File: {source['source']}*\n\n"
         
         # Add retrieval stats
-        stats = f"\n\n---\n*Retrieved: {response.num_retrieved} docs | "
-        stats += f"Reranked: {response.num_reranked} docs*"
+        stats = f"\n\n---\n*Retrieved: {response.num_retrieved} | "
+        stats += f"Reranked: {response.num_reranked}*"
         
         return answer + stats, sources
         
     except Exception as e:
-        return f"❌ Error: {str(e)}", ""
+        return f"Error: {str(e)}", ""
 
 
 # Build the Gradio interface
@@ -176,25 +153,24 @@ def create_interface():
     """Create the Gradio interface."""
     
     with gr.Blocks(
-        title="RAG Fine-tuned Embeddings - 2026 Edition",
+        title="RAG System",
         theme=gr.themes.Soft(
-            primary_hue="purple",
-            secondary_hue="blue",
+            primary_hue="slate",
+            secondary_hue="gray",
         ),
     ) as interface:
         
         gr.Markdown("""
-# 🚀 RAG Fine-tuned Embeddings - 2026 Edition
+# RAG System
 
-A production-ready RAG system with:
-- **Semantic chunking** (context-aware splitting)
-- **BGE-M3 embeddings** (state-of-the-art)
-- **Hybrid retrieval** (dense + BM25 with RRF)
-- **Cross-encoder reranking** (precision boost)
-- **Proper contrastive fine-tuning** (TripletLoss)
+Retrieval-Augmented Generation pipeline implementing:
+- Semantic Chunking
+- BGE-M3 Embeddings
+- Hybrid Retrieval (RRF)
+- Cross-Encoder Reranking
 """)
         
-        with gr.Tab("⚙️ Setup"):
+        with gr.Tab("Setup"):
             with gr.Row():
                 embedding_model = gr.Dropdown(
                     choices=[
@@ -203,16 +179,15 @@ A production-ready RAG system with:
                         "sentence-transformers/all-MiniLM-L6-v2",
                     ],
                     value="BAAI/bge-m3",
-                    label="Embedding Model",
+                    label="Model",
                 )
                 llm_provider = gr.Radio(
                     choices=["openai", "local"],
                     value="openai",
-                    label="LLM Provider",
-                    info="Use 'local' for testing with Qwen3-0.6B",
+                    label="LLM",
                 )
             
-            init_btn = gr.Button("Initialize Pipeline", variant="primary")
+            init_btn = gr.Button("Initialize", variant="primary")
             init_status = gr.Markdown()
             
             init_btn.click(
@@ -221,15 +196,15 @@ A production-ready RAG system with:
                 outputs=[init_status],
             )
         
-        with gr.Tab("📄 Documents"):
+        with gr.Tab("Documents"):
             with gr.Row():
                 with gr.Column(scale=2):
                     pdf_upload = gr.File(
                         file_count="multiple",
-                        label="Upload PDF files",
+                        label="Files (PDF/TXT/MD)",
                         file_types=[".pdf", ".txt", ".md"],
                     )
-                    process_btn = gr.Button("Process Documents", variant="primary")
+                    process_btn = gr.Button("Ingest", variant="primary")
                 
                 with gr.Column(scale=3):
                     process_status = gr.Markdown()
@@ -241,23 +216,17 @@ A production-ready RAG system with:
                 outputs=[process_status, chunk_samples],
             )
         
-        with gr.Tab("🎯 Fine-tuning"):
+        with gr.Tab("Training"):
             gr.Markdown("""
 ### Contrastive Fine-tuning
-
-This uses **proper contrastive learning** with:
-- **TripletLoss**: Learning relative distances (anchor, positive, negative)
-- **Synthetic queries**: LLM-generated search queries
-- **Hard negatives**: Mining challenging negative examples
-
-This is fundamentally different from the original autoencoder approach!
+Trains embeddings using Triplet Loss with synthetic query generation and hard negative mining.
 """)
             
             with gr.Row():
                 epochs = gr.Number(value=3, label="Epochs", minimum=1, maximum=10)
                 batch_size = gr.Number(value=16, label="Batch Size", minimum=4, maximum=64)
             
-            finetune_btn = gr.Button("Start Fine-tuning", variant="primary")
+            finetune_btn = gr.Button("Train", variant="primary")
             finetune_status = gr.Markdown()
             
             finetune_btn.click(
@@ -266,25 +235,25 @@ This is fundamentally different from the original autoencoder approach!
                 outputs=[finetune_status],
             )
         
-        with gr.Tab("💬 Query"):
+        with gr.Tab("Query"):
             with gr.Row():
                 with gr.Column(scale=2):
                     question_input = gr.Textbox(
-                        label="Your Question",
-                        placeholder="Ask a question about your documents...",
-                        lines=3,
+                        label="Question",
+                        placeholder="Enter query...",
+                        lines=2,
                     )
                     include_sources = gr.Checkbox(
-                        label="Show sources",
+                        label="Sources",
                         value=True,
                     )
-                    query_btn = gr.Button("Ask", variant="primary")
+                    query_btn = gr.Button("Submit", variant="primary")
             
             with gr.Row():
                 with gr.Column():
-                    answer_output = gr.Markdown(label="Answer")
+                    answer_output = gr.Markdown()
                 with gr.Column():
-                    sources_output = gr.Markdown(label="Sources")
+                    sources_output = gr.Markdown()
             
             query_btn.click(
                 query_rag,
@@ -292,7 +261,6 @@ This is fundamentally different from the original autoencoder approach!
                 outputs=[answer_output, sources_output],
             )
             
-            # Allow Enter key to submit
             question_input.submit(
                 query_rag,
                 inputs=[question_input, include_sources],
@@ -301,13 +269,7 @@ This is fundamentally different from the original autoencoder approach!
         
         gr.Markdown("""
 ---
-### Architecture
-
-```
-Documents → Semantic Chunking → BGE-M3 Embeddings → Qdrant + BM25
-                                                          ↓
-Query → Embed → Hybrid Retrieval (RRF) → Cross-Encoder Rerank → LLM → Answer
-```
+**Architecture:** Documents → Semantic Chunking → BGE-M3 → Hybrid Retrieval → RRF → Rerank → LLM
 """)
     
     return interface

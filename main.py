@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-RAG Fine-tuned Embeddings - 2026 Edition
+RAG Fine-tuned Embeddings
 
 Main entry point for the application.
 """
@@ -15,20 +15,20 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 def main():
     parser = argparse.ArgumentParser(
-        description="RAG Fine-tuned Embeddings - 2026 Edition",
+        description="RAG System CLI",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Launch Gradio UI
+  # Launch UI
   python main.py ui
   
-  # Process documents from command line
+  # Ingest documents
   python main.py ingest --files doc1.pdf doc2.pdf
   
-  # Query the system
-  python main.py query "What is the main topic?"
+  # Query
+  python main.py query "Search query"
   
-  # Fine-tune embeddings
+  # Train
   python main.py finetune --epochs 3
 """,
     )
@@ -36,7 +36,7 @@ Examples:
     subparsers = parser.add_subparsers(dest="command", help="Commands")
     
     # UI command
-    ui_parser = subparsers.add_parser("ui", help="Launch Gradio web interface")
+    ui_parser = subparsers.add_parser("ui", help="Launch web interface")
     ui_parser.add_argument("--port", type=int, default=7860, help="Port to run on")
     ui_parser.add_argument("--share", action="store_true", help="Create public link")
     
@@ -60,10 +60,7 @@ Examples:
     if args.command == "ui":
         from app.gradio_ui import create_interface
         
-        print("\n" + "="*60)
-        print("🚀 RAG Fine-tuned Embeddings - 2026 Edition")
-        print("="*60)
-        print("\nLaunching Gradio interface...")
+        print("Launching interface at http://localhost:7860...")
         
         interface = create_interface()
         interface.launch(
@@ -75,46 +72,38 @@ Examples:
     elif args.command == "ingest":
         from src.pipeline import create_pipeline
         
-        print("\n" + "="*60)
-        print("📄 Document Ingestion")
-        print("="*60)
+        print("Ingesting documents...")
         
         pipeline = create_pipeline(embedding_model=args.model)
         num_chunks = pipeline.ingest(args.files)
         
-        print(f"\n✅ Ingested {len(args.files)} documents into {num_chunks} chunks")
+        print(f"Complete. Processed {len(args.files)} documents, {num_chunks} chunks.")
     
     elif args.command == "query":
         from src.pipeline import create_pipeline
-        
-        print("\n" + "="*60)
-        print("💬 RAG Query")
-        print("="*60)
         
         pipeline = create_pipeline(embedding_model=args.model)
         
         # Try to load existing index
         if pipeline.dense_store.count() == 0:
-            print("\n❌ No documents indexed. Run 'ingest' first.")
+            print("Error: Index empty. Run 'ingest' first.")
             sys.exit(1)
         
         response = pipeline.query(args.question)
         
-        print(f"\n**Question:** {args.question}")
-        print(f"\n**Answer:** {response.answer}")
-        print(f"\n*Retrieved {response.num_retrieved} docs, reranked {response.num_reranked}*")
+        print(f"\nQ: {args.question}")
+        print(f"A: {response.answer}")
+        print(f"\nStats: Retrieved {response.num_retrieved}, Reranked {response.num_reranked}")
     
     elif args.command == "finetune":
         from src.pipeline import create_pipeline
         
-        print("\n" + "="*60)
-        print("🎯 Contrastive Fine-tuning")
-        print("="*60)
+        print("Starting training (Contrastive Fine-tuning)...")
         
         pipeline = create_pipeline()
         
         if not pipeline.chunks:
-            print("\n❌ No documents indexed. Run 'ingest' first.")
+            print("Error: Index empty. Run 'ingest' first.")
             sys.exit(1)
         
         output_path = pipeline.fine_tune(
@@ -122,7 +111,7 @@ Examples:
             batch_size=args.batch_size,
         )
         
-        print(f"\n✅ Fine-tuned model saved to: {output_path}")
+        print(f"Training complete. Model saved to: {output_path}")
     
     else:
         parser.print_help()

@@ -1,200 +1,132 @@
-# RAG Fine-tuned Embeddings - 2026 Edition
+# RAG Fine-tuned Embeddings
 
-A **production-ready** Retrieval-Augmented Generation system using state-of-the-art 2025-2026 techniques.
+A high-precision Retrieval-Augmented Generation system implementing contrastive fine-tuning and hybrid retrieval.
 
-## 🚀 What's New in v2.0
+## Overview
 
-This is a complete rebuild addressing critical flaws in the original implementation:
+This project implements a modular RAG pipeline focused on retrieval accuracy. It addresses common limitations in standard RAG implementations by integrating contrastive learning, semantic chunking, and rank fusion.
 
-| Component | Old (Broken) | New (Working) |
-|-----------|--------------|---------------|
-| **Embeddings** | all-MiniLM-L6-v2 | BGE-M3 (SOTA) |
-| **Fine-tuning** | Autoencoder (wrong!) | Contrastive learning |
-| **Chunking** | Fixed 512 chars | Semantic boundaries |
-| **Retrieval** | Naive hybrid | RRF score fusion |
-| **Reranking** | None | Cross-encoder |
+| Component | Previous | Current (v2.0) |
+|-----------|----------|----------------|
+| **Embeddings** | all-MiniLM-L6-v2 | BGE-M3 |
+| **Training** | Reconstruction (Autoencoder) | Contrastive (Triplet Loss) |
+| **Chunking** | Fixed Size | Semantic Boundary |
+| **Retrieval** | Naive Hybrid | Reciprocal Rank Fusion (RRF) |
+| **Reranking** | None | Cross-Encoder |
 | **Storage** | In-memory | Persistent Qdrant |
 
-### The Core Problem We Fixed
+### Contrastive Learning
 
-The original "fine-tuning" trained an autoencoder to reconstruct embeddings to themselves:
+The system replaces autoencoder-based training with proper contrastive loss to learn semantic relevance.
+
+**Previous approach (Reconstruction):**
 ```python
-# ❌ WRONG: This teaches nothing about relevance!
 model.fit(embedding, embedding)
 ```
 
-The new approach uses **proper contrastive learning**:
+**Current approach (Contrastive):**
 ```python
-# ✅ CORRECT: Learn relative distances with triplets
-TripletLoss(anchor=query, positive=relevant_doc, negative=irrelevant_doc)
+loss = TripletLoss(anchor=query, positive=relevant, negative=irrelevant)
 ```
 
-## 📦 Installation
+## Installation
 
 ```bash
-# Clone the repository
 git clone https://github.com/s-smits/RAG-finetuned-embeddings
 cd RAG-finetuned-embeddings
 
-# Create virtual environment
-python3 -m venv venv
-source venv/bin/activate  # macOS/Linux
-# or: venv\Scripts\activate  # Windows
+# Project management with uv (recommended)
+uv sync
 
-# Install dependencies
+# Or standard pip
+python3 -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
 
-# Configure environment
+# Configuration
 cp .env.example .env
-# Edit .env and add your OPENAI_API_KEY
 ```
 
-## 🎯 Quick Start
+## Usage
 
-### Option 1: Web Interface (Gradio)
-
+### Web Interface
 ```bash
-python main.py ui
+uv run python main.py ui
 ```
+Access at `http://localhost:7860`.
 
-Then open http://localhost:7860 in your browser.
-
-### Option 2: Command Line
-
+### CLI
 ```bash
-# Ingest documents
-python main.py ingest --files document1.pdf document2.pdf
+# Ingest
+uv run python main.py ingest --files doc.pdf
 
 # Query
-python main.py query "What is the main topic of these documents?"
+uv run python main.py query "Search query"
 
-# Fine-tune embeddings (optional)
-python main.py finetune --epochs 3
+# Train
+uv run python main.py finetune --epochs 3
 ```
 
-### Option 3: Python API
-
+### Python API
 ```python
 from src.pipeline import create_pipeline
 
-# Create pipeline
-pipeline = create_pipeline(
-    embedding_model="BAAI/bge-m3",
-    llm_provider="openai",  # or "local" for Qwen3-0.6B
-)
-
-# Ingest documents
-pipeline.ingest(["document.pdf"])
-
-# Query
-response = pipeline.query("What is this about?")
-print(response.answer)
-print(response.sources)
-
-# Optional: Fine-tune embeddings
+pipeline = create_pipeline(embedding_model="BAAI/bge-m3")
+pipeline.ingest(["manual.pdf"])
 pipeline.fine_tune(epochs=3)
+
+response = pipeline.query("Query text")
+print(response.answer)
 ```
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Document Ingestion                        │
+│                    Document Processing                       │
 ├─────────────────────────────────────────────────────────────┤
-│  PDF/Text → Parse → Semantic Chunking → BGE-M3 Embed        │
-│                           ↓                                  │
-│                    Qdrant + BM25 Index                       │
+│  Input → Semantic Chunking → BGE-M3 Embeddings → Indexing   │
+│                                    │                         │
+│                            ┌───────┴───────┐                │
+│                            ▼               ▼                │
+│                       Qdrant           BM25 Index           │
 └─────────────────────────────────────────────────────────────┘
-                            ↓
+                             │
+                             ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                    Query Pipeline                            │
+│                    Retrieval Pipeline                        │
 ├─────────────────────────────────────────────────────────────┤
-│  Query → Embed → Hybrid Search → RRF Fusion → Rerank → LLM │
-│                     (Dense+BM25)     (Cross-Encoder)        │
+│  Query → Hybrid Search (RRF) → Cross-Encoder Rerank → LLM   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## 📁 Project Structure
+## Configuration
 
-```
-RAG-finetuned-embeddings/
-├── src/
-│   ├── config.py                 # Configuration management
-│   ├── pipeline.py               # Main RAG pipeline
-│   ├── document_processing/
-│   │   ├── parsers.py            # PDF/text parsing
-│   │   └── chunking.py           # Semantic chunking
-│   ├── embeddings/
-│   │   ├── models.py             # BGE-M3 & SentenceTransformer
-│   │   └── fine_tuning.py        # Contrastive fine-tuning
-│   ├── retrieval/
-│   │   ├── hybrid.py             # Hybrid search + RRF
-│   │   └── reranker.py           # Cross-encoder reranking
-│   ├── vectorstore/
-│   │   └── qdrant_store.py       # Qdrant + BM25
-│   └── generation/
-│       └── llm.py                # LLM abstraction
-├── app/
-│   └── gradio_ui.py              # Web interface
-├── main.py                       # CLI entry point
-├── requirements.txt              # Dependencies
-└── README.md                     # This file
-```
-
-## ⚙️ Configuration
-
-Configuration via environment variables or `.env`:
+Configure via `.env`:
 
 ```bash
-# Required
 OPENAI_API_KEY=sk-...
-
-# Optional overrides
 EMBEDDING_MODEL_NAME=BAAI/bge-m3
-EMBEDDING_DEVICE=auto  # cuda, mps, or cpu
-CHUNKING_STRATEGY=semantic  # semantic, fixed, recursive
-RETRIEVAL_HYBRID_ALPHA=0.5  # 0=sparse only, 1=dense only
-LLM_MODEL_NAME=gpt-4o
+CHUNKING_STRATEGY=semantic
+RETRIEVAL_HYBRID_ALPHA=0.5
 ```
 
-## 🔬 Key Features
+## Performance Metrics
 
-### Semantic Chunking
-Splits documents at natural topic boundaries using embedding similarity, preserving context.
+| Metric | Target |
+|--------|--------|
+| Context Precision | >80% |
+| Context Recall | >85% |
+| Answer Relevancy | >90% |
+| Latency (p95) | <200ms |
 
-### Hybrid Retrieval with RRF
-Combines dense (BGE-M3) and sparse (BM25) retrieval using Reciprocal Rank Fusion for optimal recall.
-
-### Cross-Encoder Reranking
-Uses BGE-Reranker to precisely score query-document relevance after initial retrieval.
-
-### Proper Contrastive Fine-tuning
-Trains embeddings using TripletLoss with:
-- Synthetic query generation (via LLM)
-- Hard negative mining
-- Domain-specific optimization
-
-## 📊 Performance
-
-Expected improvements over the original:
-
-| Metric | Original | 2026 Edition |
-|--------|----------|--------------|
-| Context Precision | ~40% | >80% |
-| Context Recall | ~50% | >85% |
-| Answer Relevancy | ~60% | >90% |
-| Latency (p95) | ~500ms | <200ms |
-
-## 🧪 Testing
+## Testing
 
 ```bash
-# Run tests
-pytest tests/ -v
-
-# Test specific component
-pytest tests/test_chunking.py -v
+uv run pytest
 ```
 
-## 📝 License
+## License
 
 [MIT License](LICENSE)
+
