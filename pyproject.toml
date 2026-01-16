@@ -1,0 +1,33 @@
+[project]
+name = "rag-finetuned-embeddings"
+version = "2.0.0"
+description = "Production-ready RAG with fine-tuned embeddings using 2026 best practices"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "bm25s>=0.2.14",
+    "gradio>=6.3.0",
+    "nltk>=3.9.2",
+    "numpy>=2.4.1",
+    "pydantic-settings>=2.12.0",
+    "pypdf2>=3.0.1",
+    "pystemmer>=3.0.0",
+    "pytest>=9.0.2",
+    "qdrant-client>=1.16.2",
+    "scikit-learn>=1.8.0",
+    "sentence-transformers>=5.2.0",
+    "torch>=2.9.1",
+    "python-dotenv>=1.2.0",
+    "datasets>=4.5.0",
+    "tqdm>=4.67.1",
+    "accelerate>=1.12.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=9.0.2",
+]
